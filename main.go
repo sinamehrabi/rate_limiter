@@ -32,10 +32,7 @@ func (r *RateLimiter) Allow(ip string, rdb *redis.Client) bool {
 		log.Println("Error storing rate limit in Redis:", countCmd.Err())
 		return false
 	}
-	expireCmd := rdb.Expire(rdb.Context(), key, r.refillPeriod)
-	if expireCmd.Err() != nil {
-		log.Println("Error setting expiration for rate limit key in Redis:", expireCmd.Err())
-	}
+
 	count, err := countCmd.Result()
 	if err != nil {
 		log.Println("Error retrieving rate limit from Redis:", err)
@@ -45,7 +42,15 @@ func (r *RateLimiter) Allow(ip string, rdb *redis.Client) bool {
 		log.Println(count)
 
 		return false
+	} else {
+		expiredTime := time.Duration(r.refillAmount) * r.refillPeriod
+
+		expireCmd := rdb.Expire(rdb.Context(), key, expiredTime)
+		if expireCmd.Err() != nil {
+			log.Println("Error setting expiration for rate limit key in Redis:", expireCmd.Err())
+		}
 	}
+
 	return true
 }
 func main() {
