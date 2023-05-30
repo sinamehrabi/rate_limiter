@@ -1,9 +1,0 @@
-rules:
-  - path: /auth
-    unit: minute
-    rpu: 4
-
-  - path: /info
-    unit: second
-    rpu: 1
-  
