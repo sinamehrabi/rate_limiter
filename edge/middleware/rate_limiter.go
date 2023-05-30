@@ -1,4 +1,4 @@
-package main
+package middleware
 
 import (
 	"fmt"
@@ -15,7 +15,6 @@ type RateLimiter struct {
 }
 
 func NewRateLimiter(capacity, refillAmount int, refillPeriod time.Duration) *RateLimiter {
-
 	return &RateLimiter{
 		capacity:     capacity,
 		refillAmount: refillAmount,

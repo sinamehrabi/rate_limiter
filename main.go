@@ -1,50 +1,47 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"time"
-
+	"context"
+	"flag"
 	"github.com/go-redis/redis/v8"
+	"github.com/sinamehrabi/rate_limiter/common"
+	"github.com/sinamehrabi/rate_limiter/common/data"
+	"github.com/sinamehrabi/rate_limiter/edge"
+	"log"
 )
 
 func main() {
 
+	ctx, _ := context.WithCancel(context.Background())
+	configPath := flag.String("config", "", "path to config file")
+
+	flag.Parse()
+
+	if configPath == nil || *configPath == "" {
+		flag.Usage()
+		log.Fatal(ctx, "config file not specified")
+	}
+
+	config, err := common.LoadConfig(*configPath)
+	if err != nil {
+		log.Fatal(ctx, "failed to load config")
+	}
+
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // Update with your Redis server address
-		Password: "",               // Update with Redis server password if applicable
-		DB:       0,                // Redis database index
+		Addr:     config.Redis.Host + ":" + config.Redis.Port, // Update with your Redis server address
+		Username: config.Redis.Username,                       // Update with Redis server username if applicable
+		Password: config.Redis.Password,                       // Update with Redis server password if applicable
+		DB:       config.Redis.DB,                             // Redis database index
 	})
-	// Create a rate limiter that allows 10 requests per second
-	rateLimiter := NewRateLimiter(2, 50, time.Second)
-	// Reverse proxy target URL
-	targetURL, err := url.Parse("http://localhost:2222")
+
+	_, err = rdb.Ping(ctx).Result()
+
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(ctx, err)
 	}
-	// Create a reverse proxy
-	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	// Define the handler function that includes rate limiting
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip := r.RemoteAddr // In a production environment, use a more reliable way to obtain the client IP
-		if rateLimiter.Allow(ip, rdb) {
-			// Pass the request to the reverse proxy if allowed
-			proxy.ServeHTTP(w, r)
-		} else {
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-		}
-	})
-	// Start the HTTP server
-	server := &http.Server{
-		Addr:    ":8002",
-		Handler: handler,
-	}
-	fmt.Println("Reverse proxy with rate limiter using Redis is running on :8002...")
-	err = server.ListenAndServe()
-	if err != nil {
-		log.Fatal(err)
-	}
+
+	// Create a new context with the Redis client
+	ctx = context.WithValue(ctx, data.RedisClientKey, rdb)
+
+	edge.StartServer(ctx, config)
 }
