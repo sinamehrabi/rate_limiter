@@ -1,0 +1,25 @@
+# Server configurations
+server:
+  http:
+    host: ""
+    port: 8080
+  target_http:
+    host: "https://google.com"
+    port: 443
+
+# Redis configurations
+redis:
+  host: localhost
+  port: 6379
+  db: 0
+
+# Rate Limiter configurations
+rules:
+  - path: /auth
+    unit: minute
+    rpu: 4
+
+  - path: /info
+    unit: second
+    rpu: 1
+  
